@@ -98,6 +98,7 @@ class RSS:
                     except Exception as e:
                         logging.error(f"Error processing entry: {str(e)}")
                         continue  # Skip to the next entry
+            context.close()
             browser.close()
 
     def gen_feed(self):

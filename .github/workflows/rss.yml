@@ -5,6 +5,9 @@ on:
     - cron: "0 0,12 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   generate-feeds:
     runs-on: ubuntu-latest
@@ -20,38 +23,37 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          # 启用所有必要的软件源
-            sudo add-apt-repository -y universe
-            sudo add-apt-repository -y multiverse
-            sudo apt-get update -y
+            # 启用所有必要的软件源
+              sudo add-apt-repository -y universe
+              sudo add-apt-repository -y multiverse
+              sudo apt-get update -y
 
-            # 安装兼容层和核心依赖
-            sudo apt-get install -y \
-              libasound2t64 \          # Ubuntu 24.04 原生包
-              libasound2 \             # 通过 compatibility layer 安装
-              libffi8 \
-              libx264-164 \
-              libnss3 \
-              libnspr4 \
-              libatk1.0-0 \
-              libatk-bridge2.0-0 \
-              libcups2 \
-              libdrm2 \
-              libxkbcommon0 \
-              libxcomposite1 \
-              libxdamage1 \
-              libxrandr2 \
-              libgbm1 \
-              libgtk-4-1 \
-              libpango-1.0-0 \
-              libwayland-client0 \
-              libwayland-server0 \
-              libva-drm2 \
-              libva-x11-2
+              # 安装依赖（移除 libasound2）
+              sudo apt-get install -y \
+                libasound2t64 \
+                libffi8 \
+                libx264-164 \
+                libnss3 \
+                libnspr4 \
+                libatk1.0-0 \
+                libatk-bridge2.0-0 \
+                libcups2 \
+                libdrm2 \
+                libxkbcommon0 \
+                libxcomposite1 \
+                libxdamage1 \
+                libxrandr2 \
+                libgbm1 \
+                libgtk-4-1 \
+                libpango-1.0-0 \
+                libwayland-client0 \
+                libwayland-server0 \
+                libva-drm2 \
+                libva-x11-2
 
-            # 强制创建符号链接兼容旧版
-            sudo ln -sf /usr/lib/x86_64-linux-gnu/alsa-lib/libasound.so.2 /usr/lib/libasound.so.2
-            sudo ldconfig
+              # 如果你真的需要旧的 libasound2 接口，可以创建符号链接，但通常不需要
+              sudo ln -sf /usr/lib/x86_64-linux-gnu/alsa-lib/libasound.so.2 /usr/lib/libasound.so.2 || true
+              sudo ldconfig
 
       - name: Install Python dependencies
         run: |
