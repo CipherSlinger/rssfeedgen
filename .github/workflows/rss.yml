@@ -21,46 +21,33 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install system dependencies
+      - name: Install Python dependencies and browser
         run: |
-            # 启用所有必要的软件源
-              sudo add-apt-repository -y universe
-              sudo add-apt-repository -y multiverse
-              sudo apt-get update -y
-
-              # 安装依赖（移除 libasound2）
-              sudo apt-get install -y \
-                libasound2t64 \
-                libffi8 \
-                libx264-164 \
-                libnss3 \
-                libnspr4 \
-                libatk1.0-0 \
-                libatk-bridge2.0-0 \
-                libcups2 \
-                libdrm2 \
-                libxkbcommon0 \
-                libxcomposite1 \
-                libxdamage1 \
-                libxrandr2 \
-                libgbm1 \
-                libgtk-4-1 \
-                libpango-1.0-0 \
-                libwayland-client0 \
-                libwayland-server0 \
-                libva-drm2 \
-                libva-x11-2
-
-              # 如果你真的需要旧的 libasound2 接口，可以创建符号链接，但通常不需要
-              sudo ln -sf /usr/lib/x86_64-linux-gnu/alsa-lib/libasound.so.2 /usr/lib/libasound.so.2 || true
-              sudo ldconfig
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          playwright install-deps chromium
-          playwright install chromium
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+        
+            sudo apt-get update
+            sudo apt-get install -y \
+              libnss3 \
+              libnspr4 \
+              libatk1.0-0 \
+              libatk-bridge2.0-0 \
+              libcups2 \
+              libdrm2 \
+              libxkbcommon0 \
+              libxcomposite1 \
+              libxdamage1 \
+              libxrandr2 \
+              libgbm1 \
+              libgtk-4-1 \
+              libpango-1.0-0 \
+              libwayland-client0 \
+              libwayland-server0 \
+              libva-drm2 \
+              libva-x11-2 \
+              libasound2t64
+        
+            playwright install chromium
 
       - name: Generate RSS feeds
         run: python main.py
