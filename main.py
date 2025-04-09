@@ -79,7 +79,7 @@ class RSS:
                     self.clear_entries()  # Clear previous entries
 
                     for ele in container:
-                           try:
+                        try:
                                 link_element = ele.query_selector(
                                     self.selector.link)
                                 title_element = ele.query_selector(
@@ -105,7 +105,7 @@ class RSS:
 
                                 self.add_entry(date=date_with_tz,
                                                title=title, link=link)
-                            except Exception as e:
+                        except Exception as e:
                                 logging.error(
                                     f"Error processing entry: {str(e)}")
                                 continue  # Skip to the next entry
