@@ -1,20 +1,20 @@
+from playwright.sync_api import sync_playwright
+from apscheduler.schedulers.blocking import BlockingScheduler
+import pytz
+from feedgen.feed import FeedGenerator
+from dateutil.parser import parse
+from urllib.parse import urljoin
 import logging
 logging.basicConfig(level=logging.INFO)
-from urllib.parse import urljoin
-from dateutil.parser import parse
-from feedgen.feed import FeedGenerator
-import pytz
-import logging
-from apscheduler.schedulers.blocking import BlockingScheduler
-from playwright.sync_api import sync_playwright
 
 tz = pytz.timezone('Asia/Shanghai')
+
 
 class Selector:
     def __init__(self, container, link, title, date):
         """
         Initialize a Selector object for scraping web elements.
-        
+
         Args:
             container (str): CSS selector for the container element
             link (str): CSS selector for the link element relative to container
@@ -26,12 +26,14 @@ class Selector:
         self.title = title
         self.date = date
 
+
 class RSS:
     connect_max_retries = 3
-    def __init__(self, url, output_file, title = None, description = None):
+
+    def __init__(self, url, output_file, title=None, description=None):
         """
         Initialize an RSS feed object.
-        
+
         Args:
             url (str): The URL of the website providing the RSS feed
             title (str): The title of the RSS feed
@@ -43,7 +45,7 @@ class RSS:
         self.description = description
         self.entries = []
         self.output_file = output_file
-    
+
     def get_response(self):
         with sync_playwright() as p:
             browser = p.chromium.launch(
@@ -55,57 +57,73 @@ class RSS:
                         user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
                     )
                     page = context.new_page()
-                    
+
                     # Navigate and wait for content
-                    page.goto(self.url, timeout=60000, wait_until="domcontentloaded")
-                    page.wait_for_selector(f"{self.selector.container} >> nth=0", timeout=60000)
-                    page.wait_for_timeout(3000) 
-                    
+                    page.goto(self.url, timeout=120000,
+                              wait_until="domcontentloaded")
+                    page.wait_for_selector(
+                        f"{self.selector.container} >> nth=0", timeout=60000)
+                    page.wait_for_timeout(3000)
+
                     # Get page content
                     self.title = page.title()
-                    description_element = page.query_selector('head > meta[name="description"], head > meta[name*="description"], head > meta[name*="Description"]')
-                    self.description = description_element.get_attribute("content") if description_element else None
+                    description_element = page.query_selector(
+                        'head > meta[name="description"], head > meta[name*="description"], head > meta[name*="Description"]')
+                    self.description = description_element.get_attribute(
+                        "content") if description_element else None
 
-                    container = page.query_selector_all(self.selector.container)
-                    logging.info(f"Found {len(container)} entries in {self.title}")
+                    container = page.query_selector_all(
+                        self.selector.container)
+                    logging.info(
+                        f"Found {len(container)} entries in {self.title}")
                     self.clear_entries()  # Clear previous entries
 
                     for ele in container:
-                            try:
-                                link_element = ele.query_selector(self.selector.link)
-                                title_element = ele.query_selector(self.selector.title)
-                                date_element = ele.query_selector(self.selector.date)
+                           try:
+                                link_element = ele.query_selector(
+                                    self.selector.link)
+                                title_element = ele.query_selector(
+                                    self.selector.title)
+                                date_element = ele.query_selector(
+                                    self.selector.date)
 
                                 link = title = published_date = date_with_tz = None
-                                
+
                                 link = link_element.get_attribute("href")
-                                link = urljoin(self.url, link)  # Ensure the link is absolute
+                                # Ensure the link is absolute
+                                link = urljoin(self.url, link)
                                 title = title_element.inner_text().strip()
                                 published_date = date_element.inner_text().strip()
                                 date_with_tz = None  # 解析失败则设为 None
                                 try:
-                                    date_obj = parse(published_date)  # 自动解析多种格式
+                                    date_obj = parse(
+                                        published_date)  # 自动解析多种格式
                                     date_with_tz = tz.localize(date_obj)
                                 except ValueError:
-                                    logging.error(f"Date parsing error for entry: {published_date} - {str(e)}")
+                                    logging.error(
+                                        f"Date parsing error for entry: {published_date} - {str(e)}")
 
-                                self.add_entry(date=date_with_tz, title=title, link=link)
+                                self.add_entry(date=date_with_tz,
+                                               title=title, link=link)
                             except Exception as e:
-                                logging.error(f"Error processing entry: {str(e)}")
+                                logging.error(
+                                    f"Error processing entry: {str(e)}")
                                 continue  # Skip to the next entry
                     # Success - clean up and return
                     context.close()
                     return
-                
+
                 except Exception as e:
-                    logging.warning(f"Attempt {attempt + 1}/{RSS.connect_max_retries} failed for {self.url}: {str(e)}")
+                    logging.warning(
+                        f"Attempt {attempt + 1}/{RSS.connect_max_retries} failed for {self.url}: {str(e)}")
                     try:
                         context.close()
                     except:
                         pass
 
                     if attempt == self.connect_max_retries - 1:
-                        logging.error(f"Failed to load page after {self.connect_max_retries} attempts: {e}")
+                        logging.error(
+                            f"Failed to load page after {self.connect_max_retries} attempts: {e}")
                         raise
                     # Wait before retrying
                     import time
@@ -117,7 +135,7 @@ class RSS:
     def gen_feed(self):
         # Sort entries by date
         self.entries.sort(key=lambda x: x[0])
-        
+
         fg = FeedGenerator()
         fg.title(title=self.title)
         fg.link(href=self.url)
@@ -133,7 +151,7 @@ class RSS:
             fe.guid(link)
             fe.description(title)
             fe.pubDate(date)
-        
+
         fg.rss_str(pretty=True)
         fg.rss_file(self.output_file, pretty=True)
 
@@ -154,7 +172,7 @@ class RSS:
             link (str): The URL link to the entry
         """
         self.entries.append((date, title, link))
-    
+
     def clear_entries(self):
         """Clear all entries from the RSS feed."""
         self.entries = []
@@ -183,15 +201,17 @@ class RSS:
         logging.basicConfig()
         scheduler = BlockingScheduler()
         scheduler.add_job(
-            cls.update_feeds, 
-            'interval', 
-            hours=hours, 
-            minutes=minutes, 
+            cls.update_feeds,
+            'interval',
+            hours=hours,
+            minutes=minutes,
             seconds=seconds,
             args=[sites]
         )
-        logging.info(f"Starting scheduler - Updates every {hours}h {minutes}m {seconds}s")
+        logging.info(
+            f"Starting scheduler - Updates every {hours}h {minutes}m {seconds}s")
         scheduler.start()
+
 
 if __name__ == "__main__":
     sites = [
@@ -217,6 +237,6 @@ if __name__ == "__main__":
 
     # Run once immediately
     RSS.update_feeds(sites)
-    
+
     # Then start the scheduler (updates every hour by default)
     # RSS.start_schedule(sites, hours=0, minutes=5, seconds=0)
