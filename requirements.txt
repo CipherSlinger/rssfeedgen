@@ -1,0 +1,5 @@
+apscheduler
+feedgen==1.0.0
+python-dateutil==2.8.2
+pytz==2023.3
+playwright==1.42.0

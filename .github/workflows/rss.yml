@@ -1,0 +1,43 @@
+name: RSS Feed Generator
+
+on:
+  schedule:
+    # 每天 UTC 时间 0点、12点 各执行一次（北京时间 8点、20点）
+    - cron: "0 0,12 * * *"
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  generate-feeds:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 步骤1：检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 步骤2：设置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      # 步骤3：安装依赖（包括 Playwright 浏览器）
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium
+          playwright install-deps  # 安装系统依赖
+
+      # 步骤4：运行爬虫生成 RSS
+      - name: Generate RSS feeds
+        run: python main.py  # 确保你的代码文件名正确
+
+      # 步骤5：提交生成的 XML 文件（可选）
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add *.xml
+          git commit -m "Auto-update RSS feeds" || echo "No changes to commit"
+          git push
