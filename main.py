@@ -111,7 +111,7 @@ class RSS:
                                 continue  # Skip to the next entry
                     # Success - clean up and return
                     context.close()
-                    return
+                    break
 
                 except Exception as e:
                     logging.warning(
@@ -129,8 +129,7 @@ class RSS:
                     import time
                     time.sleep(2 * (attempt + 1))  # Exponential backoff
 
-                finally:
-                    browser.close()
+                browser.close()
 
     def gen_feed(self):
         # Sort entries by date
