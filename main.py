@@ -47,89 +47,133 @@ class RSS:
         self.output_file = output_file
 
     def get_response(self):
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,  # 显示浏览器窗口（调试时建议开启）
-                args=["--disable-blink-features=AutomationControlled"])
-            for attempt in range(RSS.connect_max_retries):
-                try:
-                    context = browser.new_context(
-                        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
-                    )
-                    page = context.new_page()
+        browser = None
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-dev-shm-usage",
+                        "--no-sandbox",
+                        "--dns-prefetch-disable",
+                    ]
+                )
 
-                    # Navigate and wait for content
-                    page.goto(self.url, timeout=120000,
-                              wait_until="domcontentloaded")
-                    page.wait_for_selector(
-                        f"{self.selector.container} >> nth=0", timeout=60000)
-                    page.wait_for_timeout(3000)
-
-                    # Get page content
-                    self.title = page.title()
-                    description_element = page.query_selector(
-                        'head > meta[name="description"], head > meta[name*="description"], head > meta[name*="Description"]')
-                    self.description = description_element.get_attribute(
-                        "content") if description_element else None
-
-                    container = page.query_selector_all(
-                        self.selector.container)
-                    logging.info(
-                        f"Found {len(container)} entries in {self.title}")
-                    self.clear_entries()  # Clear previous entries
-
-                    for ele in container:
-                        try:
-                                link_element = ele.query_selector(
-                                    self.selector.link)
-                                title_element = ele.query_selector(
-                                    self.selector.title)
-                                date_element = ele.query_selector(
-                                    self.selector.date)
-
-                                link = title = published_date = date_with_tz = None
-
-                                link = link_element.get_attribute("href")
-                                # Ensure the link is absolute
-                                link = urljoin(self.url, link)
-                                title = title_element.inner_text().strip()
-                                published_date = date_element.inner_text().strip()
-                                date_with_tz = None  # 解析失败则设为 None
-                                try:
-                                    date_obj = parse(
-                                        published_date)  # 自动解析多种格式
-                                    date_with_tz = tz.localize(date_obj)
-                                except ValueError:
-                                    logging.error(
-                                        f"Date parsing error for entry: {published_date} - {str(e)}")
-
-                                self.add_entry(date=date_with_tz,
-                                               title=title, link=link)
-                        except Exception as e:
-                                logging.error(
-                                    f"Error processing entry: {str(e)}")
-                                continue  # Skip to the next entry
-                    # Success - clean up and return
-                    context.close()
-                    break
-
-                except Exception as e:
-                    logging.warning(
-                        f"Attempt {attempt + 1}/{RSS.connect_max_retries} failed for {self.url}: {str(e)}")
+                for attempt in range(RSS.connect_max_retries):
+                    context = None
+                    page = None
                     try:
-                        context.close()
-                    except:
-                        pass
+                        context = browser.new_context(
+                            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                            viewport={'width': 1920, 'height': 1080},
+                            ignore_https_errors=True
+                        )
+                        
+                        page = context.new_page()
+                        page.set_default_timeout(60000)  # 3 minutes timeout
+                        
+                        response = page.goto(
+                            self.url,
+                            wait_until="networkidle",
+                            timeout=60000
+                        )
+                        
+                        if not response.ok:
+                            raise Exception(f"HTTP {response.status}: {response.status_text}")
+                        
+                        # Wait for content with increased timeout
+                        page.wait_for_selector(
+                            f"{self.selector.container} >> nth=0",
+                            timeout=60000,
+                            state="visible"
+                        )
+                        page.wait_for_timeout(5000)  # 5 second wait
+                        
+                        # Extract content
+                        self._extract_page_content(page)
+                        
+                        return  # Success - exit method
+                        
+                    except Exception as e:
+                        logging.warning(
+                            f"Attempt {attempt + 1}/{RSS.connect_max_retries} failed for {self.url}: {str(e)}")
+                        
+                        if attempt == RSS.connect_max_retries - 1:
+                            raise
+                        
+                        # Cleanup before retry
+                        if page:
+                            try:
+                                page.close()
+                            except:
+                                pass
+                        if context:
+                            try:
+                                context.close()
+                            except:
+                                pass
+                                
+                        # Wait with exponential backoff
+                        import time
+                        time.sleep(5 * (2 ** attempt))  # 5, 10, 20 seconds
+                        
+        except Exception as e:
+            logging.error(f"Failed to process {self.url}: {str(e)}")
+            raise
+        finally:
+            if browser:
+                try:
+                    browser.close()
+                except:
+                    pass
 
-                    if attempt == self.connect_max_retries - 1:
-                        logging.error(
-                            f"Failed to load page after {self.connect_max_retries} attempts: {e}")
-                        raise
-                    # Wait before retrying
-                    import time
-                    time.sleep(2 * (attempt + 1))  # Exponential backoff
+    def _extract_page_content(self, page):
+        """Extract content from loaded page"""
+        self.title = page.title()
+        description_element = page.query_selector(
+            'head > meta[name="description"], head > meta[name*="description"], head > meta[name*="Description"]'
+        )
+        self.description = description_element.get_attribute("content") if description_element else None
 
-                browser.close()
+        container = page.query_selector_all(self.selector.container)
+        if not container:
+            raise Exception(f"No elements found matching selector: {self.selector.container}")
+            
+        logging.info(f"Found {len(container)} entries in {self.title}")
+        self.clear_entries()
+
+        for ele in container:
+            try:
+                self._process_single_entry(ele, page)
+            except Exception as e:
+                logging.warning(f"Failed to process entry: {str(e)}")
+                continue
+
+    def _process_single_entry(self, ele, page):
+        try:
+            link_element = ele.query_selector(self.selector.link)
+            title_element = ele.query_selector(self.selector.title)
+            date_element = ele.query_selector(self.selector.date)
+
+            link = title = published_date = date_with_tz = None
+
+            link = link_element.get_attribute("href")
+            # Ensure the link is absolute
+            link = urljoin(self.url, link)
+            title = title_element.inner_text().strip()
+            published_date = date_element.inner_text().strip()
+            date_with_tz = None  # 解析失败则设为 None
+            try:
+                date_obj = parse(published_date)  # 自动解析多种格式
+                date_with_tz = tz.localize(date_obj)
+            except ValueError:
+                logging.error(f"Date parsing error for entry: {published_date}")
+
+            self.add_entry(date=date_with_tz, title=title, link=link)
+        except Exception as e:
+            logging.error(f"Error processing entry: {str(e)}")
+            raise
 
     def gen_feed(self):
         # Sort entries by date
@@ -228,7 +272,7 @@ if __name__ == "__main__":
                   date='span.time')),
         (RSS(url="https://www.hp.gov.cn/gzhpkj/gkmlpt/index",
              output_file='hp.xml'),
-         Selector(container='table.table-content tbody tr:not(.header)',  # 排除表头行
+         Selector(container='table.table-content tbody tr:not(.header)',
                   link='td:nth-child(1) a',
                   title='td:nth-child(1) a',
                   date='td:nth-child(2)'))
