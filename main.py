@@ -282,4 +282,4 @@ if __name__ == "__main__":
     RSS.update_feeds(sites)
 
     # Then start the scheduler (updates every hour by default)
-    # RSS.start_schedule(sites, hours=0, minutes=5, seconds=0)
+    RSS.start_schedule(sites, hours=0, minutes=5, seconds=0)
