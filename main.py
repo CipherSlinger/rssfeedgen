@@ -10,13 +10,13 @@ import logging
 logging.basicConfig(
     level=logging.INFO,
     format='[ %(asctime)s ] [ %(levelname)s ] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
         logging.FileHandler("rssfeedgen.log", encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
 
-tz = pytz.timezone('Asia/Shanghai')
 
 
 class Selector:
@@ -38,6 +38,7 @@ class Selector:
 
 class RSS:
     connect_max_retries = 3
+    timezone = pytz.timezone('Asia/Shanghai')
 
     def __init__(self, url, output_file, title=None, description=None):
         """
@@ -157,8 +158,7 @@ class RSS:
         container = page.query_selector_all(self.selector.container)
         if not container:
             raise Exception(f"No elements found matching selector: {self.selector.container}")
-            
-        logging.info(f"Found {len(container)} entries in {self.title}")
+
         self.clear_entries()
 
         for ele in container:
@@ -181,7 +181,7 @@ class RSS:
             date_with_tz = None  # 解析失败则设为 None
             try:
                 date_obj = parse(published_date, fuzzy=True)  # 自动解析多种格式
-                date_with_tz = tz.localize(date_obj)
+                date_with_tz = RSS.timezone.localize(date_obj)
             except ValueError:
                 logging.error(f"Date parsing error for entry: {published_date}")
 
@@ -241,9 +241,9 @@ class RSS:
         for rss, selector in sites:
             try:
                 rss.rss_builder(selector)
-                logging.info(f"Successfully processed {rss.url}")
+                logging.info(f"Successfully processed {rss.title} ({rss.url})")
             except Exception as e:
-                logging.error(f"Failed to process {rss.url}: {str(e)}")
+                logging.error(f"Failed to process {rss.title} ({rss.url}): {str(e)}")
 
     @classmethod
     def start_schedule(cls, sites, hours=1, minutes=0, seconds=0):
