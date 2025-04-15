@@ -1,0 +1,148 @@
+2025-04-15 09:51:34,787 - INFO - Found 20 entries in   广东省科学技术厅
+2025-04-15 09:51:35,089 - INFO - Successfully processed https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html
+2025-04-15 09:52:35,384 - WARNING - Attempt 1/3 failed for https://kjj.gz.gov.cn/xxgk/zcfg/index.html: Page.goto: Timeout 60000ms exceeded.
+Call log:
+  - navigating to "https://kjj.gz.gov.cn/xxgk/zcfg/index.html", waiting until "networkidle"
+
+2025-04-15 09:53:07,980 - INFO - Found 20 entries in 广州市科学技术局网站
+2025-04-15 09:53:08,297 - INFO - Successfully processed https://kjj.gz.gov.cn/xxgk/zcfg/index.html
+2025-04-15 09:53:25,002 - INFO - Found 20 entries in 广州开发区科技创新局 广州市黄埔区科学技术局政府信息公开平台
+2025-04-15 09:53:25,306 - INFO - Successfully processed https://www.hp.gov.cn/gzhpkj/gkmlpt/index
+2025-04-15 10:19:31,713 - ERROR - Failed to process https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:19:31,713 - ERROR - Failed to process https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:19:31,909 - ERROR - Failed to process https://kjj.gz.gov.cn/xxgk/zcfg/index.html: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:19:31,909 - ERROR - Failed to process https://kjj.gz.gov.cn/xxgk/zcfg/index.html: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:19:32,105 - ERROR - Failed to process https://www.hp.gov.cn/gzhpkj/gkmlpt/index: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:19:32,105 - ERROR - Failed to process https://www.hp.gov.cn/gzhpkj/gkmlpt/index: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:20:09,090 - ERROR - Failed to process https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:20:09,091 - ERROR - Failed to process https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:20:09,293 - ERROR - Failed to process https://kjj.gz.gov.cn/xxgk/zcfg/index.html: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:20:09,293 - ERROR - Failed to process https://kjj.gz.gov.cn/xxgk/zcfg/index.html: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:20:09,491 - ERROR - Failed to process https://www.hp.gov.cn/gzhpkj/gkmlpt/index: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 10:20:09,492 - ERROR - Failed to process https://www.hp.gov.cn/gzhpkj/gkmlpt/index: Executable doesn't exist at C:\Users\jianye\AppData\Local\ms-playwright\chromium-1105\chrome-win\chrome.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+2025-04-15 14:04:51,825 - INFO - Found 20 entries in   广东省科学技术厅
+2025-04-15 14:04:52,123 - INFO - Successfully processed https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html
+2025-04-15 14:04:58,849 - INFO - Found 20 entries in 广州市科学技术局网站
+2025-04-15 14:04:59,147 - INFO - Successfully processed https://kjj.gz.gov.cn/xxgk/zcfg/index.html
+2025-04-15 14:05:06,017 - INFO - Found 20 entries in 广州开发区科技创新局 广州市黄埔区科学技术局政府信息公开平台
+2025-04-15 14:05:06,313 - INFO - Successfully processed https://www.hp.gov.cn/gzhpkj/gkmlpt/index
+2025-04-15 14:19:46,639 - INFO - Found 20 entries in   广东省科学技术厅
+2025-04-15 14:19:47,012 - INFO - Successfully processed https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html
+2025-04-15 14:19:54,501 - INFO - Found 20 entries in 广州市科学技术局网站
+2025-04-15 14:19:54,882 - INFO - Successfully processed https://kjj.gz.gov.cn/xxgk/zcfg/index.html
+2025-04-15 14:20:01,994 - INFO - Found 20 entries in 广州开发区科技创新局 广州市黄埔区科学技术局政府信息公开平台
+2025-04-15 14:20:02,350 - INFO - Successfully processed https://www.hp.gov.cn/gzhpkj/gkmlpt/index
+[2025-04-15 14:25:44,787] INFO - Found 20 entries in   广东省科学技术厅
+[2025-04-15 14:25:45,078] INFO - Successfully processed https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html
+[2025-04-15 14:25:51,960] INFO - Found 20 entries in 广州市科学技术局网站
+[2025-04-15 14:25:52,265] INFO - Successfully processed https://kjj.gz.gov.cn/xxgk/zcfg/index.html
+[2025-04-15 14:25:59,251] INFO - Found 20 entries in 广州开发区科技创新局 广州市黄埔区科学技术局政府信息公开平台
+[2025-04-15 14:25:59,541] INFO - Successfully processed https://www.hp.gov.cn/gzhpkj/gkmlpt/index
+[ 2025-04-15 14:27:53,351 ] [ INFO ] Found 20 entries in   广东省科学技术厅
+[ 2025-04-15 14:27:53,648 ] [ INFO ] Successfully processed https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html
+[ 2025-04-15 14:28:01,282 ] [ INFO ] Found 20 entries in 广州市科学技术局网站
+[ 2025-04-15 14:28:01,575 ] [ INFO ] Successfully processed https://kjj.gz.gov.cn/xxgk/zcfg/index.html
+[ 2025-04-15 14:28:11,146 ] [ INFO ] Found 20 entries in 广州开发区科技创新局 广州市黄埔区科学技术局政府信息公开平台
+[ 2025-04-15 14:28:11,436 ] [ INFO ] Successfully processed https://www.hp.gov.cn/gzhpkj/gkmlpt/index
+[ 2025-04-15 14:33:10,228 ] [ INFO ] Found 20 entries in   广东省科学技术厅
+[ 2025-04-15 14:33:10,543 ] [ INFO ] Successfully processed https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html
+[ 2025-04-15 14:33:14,833 ] [ INFO ] Found 20 entries in 广州市科学技术局网站
+[ 2025-04-15 14:33:15,128 ] [ INFO ] Successfully processed https://kjj.gz.gov.cn/xxgk/zcfg/index.html
+[ 2025-04-15 14:33:23,588 ] [ INFO ] Found 20 entries in 广州开发区科技创新局 广州市黄埔区科学技术局政府信息公开平台
+[ 2025-04-15 14:33:23,889 ] [ INFO ] Successfully processed https://www.hp.gov.cn/gzhpkj/gkmlpt/index

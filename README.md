@@ -30,7 +30,7 @@ You can customize it to generate feeds for any website with structured content.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/rssfeedgen.git
+   git clone https://github.com/CipherSlinger/rssfeedgen.git
    cd rssfeedgen
    ```
 
@@ -96,9 +96,6 @@ Common issues:
 * **Network errors**: Verify your internet connection and the target website's availability
 * **Date parsing errors**: Ensure the date format on the website is supported by the `dateutil` parser
 
-## License
-
-[Specify your license here]
 
 ## Contributing
 

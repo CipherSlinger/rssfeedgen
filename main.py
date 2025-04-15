@@ -1,11 +1,20 @@
+import yaml
 from playwright.sync_api import sync_playwright
 from apscheduler.schedulers.blocking import BlockingScheduler
 import pytz
 from feedgen.feed import FeedGenerator
 from dateutil.parser import parse
 from urllib.parse import urljoin
+
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='[ %(asctime)s ] [ %(levelname)s ] %(message)s',
+    handlers=[
+        logging.FileHandler("rssfeedgen.log", encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
 
 tz = pytz.timezone('Asia/Shanghai')
 
@@ -45,6 +54,18 @@ class RSS:
         self.description = description
         self.entries = []
         self.output_file = output_file
+    
+    @classmethod
+    def load_sites_from_yaml(cls, config_path="config.yaml"):
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        sites = []
+        for site in config.get('sites', []):
+            rss = RSS(url=site['url'], output_file=site['output_file'])
+            selector = Selector(**site['selector'])
+            sites.append((rss, selector))
+        return sites
 
     def get_response(self):
         browser = None
@@ -61,8 +82,7 @@ class RSS:
                 )
 
                 for attempt in range(RSS.connect_max_retries):
-                    context = None
-                    page = None
+                    context = page = None
                     try:
                         context = browser.new_context(
                             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -71,7 +91,7 @@ class RSS:
                         )
                         
                         page = context.new_page()
-                        page.set_default_timeout(60000)  # 3 minutes timeout
+                        page.set_default_timeout(60000)  
                         
                         response = page.goto(
                             self.url,
@@ -88,7 +108,7 @@ class RSS:
                             timeout=60000,
                             state="visible"
                         )
-                        page.wait_for_timeout(5000)  # 5 second wait
+                        page.wait_for_timeout(1000) 
                         
                         # Extract content
                         self._extract_page_content(page)
@@ -130,10 +150,8 @@ class RSS:
 
     def _extract_page_content(self, page):
         """Extract content from loaded page"""
-        self.title = page.title()
-        description_element = page.query_selector(
-            'head > meta[name="description"], head > meta[name*="description"], head > meta[name*="Description"]'
-        )
+        self.title = page.title() or self.url
+        description_element = page.query_selector('head > meta[name="description"], head > meta[name*="description"], head > meta[name*="Description"], head > meta[property="og:description"]')
         self.description = description_element.get_attribute("content") if description_element else None
 
         container = page.query_selector_all(self.selector.container)
@@ -145,27 +163,24 @@ class RSS:
 
         for ele in container:
             try:
-                self._process_single_entry(ele, page)
+                self._process_single_entry(ele)
             except Exception as e:
-                logging.warning(f"Failed to process entry: {str(e)}")
+                logging.error(f"Failed to process entry: {str(e)}")
                 continue
 
-    def _process_single_entry(self, ele, page):
+    def _process_single_entry(self, ele):
         try:
             link_element = ele.query_selector(self.selector.link)
             title_element = ele.query_selector(self.selector.title)
             date_element = ele.query_selector(self.selector.date)
 
             link = title = published_date = date_with_tz = None
-
-            link = link_element.get_attribute("href")
-            # Ensure the link is absolute
-            link = urljoin(self.url, link)
+            link = urljoin(self.url, link_element.get_attribute("href"))# Ensure the link is absolute
             title = title_element.inner_text().strip()
             published_date = date_element.inner_text().strip()
             date_with_tz = None  # 解析失败则设为 None
             try:
-                date_obj = parse(published_date)  # 自动解析多种格式
+                date_obj = parse(published_date, fuzzy=True)  # 自动解析多种格式
                 date_with_tz = tz.localize(date_obj)
             except ValueError:
                 logging.error(f"Date parsing error for entry: {published_date}")
@@ -257,29 +272,29 @@ class RSS:
 
 
 if __name__ == "__main__":
-    sites = [
-        (RSS(url="https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html",
-             output_file='gdstc.xml'),
-         Selector(container='ul.list li',
-                  link='a',
-                  title='a',
-                  date='span.time')),
-        (RSS(url="https://kjj.gz.gov.cn/xxgk/zcfg/index.html",
-             output_file='gzkjj.xml'),
-         Selector(container='div.news_list ul li',
-                  link='a',
-                  title='a',
-                  date='span.time')),
-        (RSS(url="https://www.hp.gov.cn/gzhpkj/gkmlpt/index",
-             output_file='hp.xml'),
-         Selector(container='table.table-content tbody tr:not(.header)',
-                  link='td:nth-child(1) a',
-                  title='td:nth-child(1) a',
-                  date='td:nth-child(2)'))
-    ]
-
+    # sites = [
+    #     (RSS(url="https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html",
+    #          output_file='gdstc.xml'),
+    #      Selector(container='ul.list li',
+    #               link='a',
+    #               title='a',
+    #               date='span.time')),
+    #     (RSS(url="https://kjj.gz.gov.cn/xxgk/zcfg/index.html",
+    #          output_file='gzkjj.xml'),
+    #      Selector(container='div.news_list ul li',
+    #               link='a',
+    #               title='a',
+    #               date='span.time')),
+    #     (RSS(url="https://www.hp.gov.cn/gzhpkj/gkmlpt/index",
+    #          output_file='hp.xml'),
+    #      Selector(container='table.table-content tbody tr:not(.header)',
+    #               link='td:nth-child(1) a',
+    #               title='td:nth-child(1) a',
+    #               date='td:nth-child(2)'))
+    # ]
+    sites = RSS.load_sites_from_yaml()
     # Run once immediately
     RSS.update_feeds(sites)
 
     # Then start the scheduler (updates every hour by default)
-    RSS.start_schedule(sites, hours=0, minutes=5, seconds=0)
+    # RSS.start_schedule(sites, hours=0, minutes=5, seconds=0)

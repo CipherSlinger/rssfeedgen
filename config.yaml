@@ -1,0 +1,24 @@
+sites:
+  - url: "https://gdstc.gd.gov.cn/zwgk_n/tzgg/index.html"
+    output_file: "gdstc.xml"
+    selector:
+      container: "ul.list li"
+      link: "a"
+      title: "a"
+      date: "span.time"
+
+  - url: "https://kjj.gz.gov.cn/xxgk/zcfg/index.html"
+    output_file: "gzkjj.xml"
+    selector:
+      container: "div.news_list ul li"
+      link: "a"
+      title: "a"
+      date: "span.time"
+
+  - url: "https://www.hp.gov.cn/gzhpkj/gkmlpt/index"
+    output_file: "hp.xml"
+    selector:
+      container: "table.table-content tbody tr:not(.header)"
+      link: "td:nth-child(1) a"
+      title: "td:nth-child(1) a"
+      date: "td:nth-child(2)"
