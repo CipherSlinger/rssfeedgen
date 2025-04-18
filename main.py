@@ -110,6 +110,7 @@ class RSS:
                             state="visible"
                         )
                         page.wait_for_timeout(1000) 
+                        # logging.info(page.content())
                         
                         # Extract content
                         self._extract_page_content(page)
