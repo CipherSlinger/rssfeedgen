@@ -3,10 +3,16 @@
 
 import sys
 import re
-from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QMessageBox, QDialog, QLabel, QTextBrowser, QScrollArea
+try:
+    import yaml
+except ImportError:
+    print("PyYAML package is required. Please install it with 'pip install pyyaml'")
+    yaml = None
+
+from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QMessageBox, QDialog, QLabel, QTextBrowser, QScrollArea, QDesktopWidget, QFormLayout, QLineEdit, QToolButton
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEnginePage, QWebEngineProfile, QWebEngineSettings
-from PyQt5.QtCore import QUrl, Qt, QObject, pyqtSignal, pyqtSlot, QTimer
-from PyQt5.QtGui import QFont
+from PyQt5.QtCore import QUrl, Qt, QObject, pyqtSignal, pyqtSlot, QTimer, QSize
+from PyQt5.QtGui import QFont, QIcon, QColor, QPainter, QPen, QPainterPath
 from PyQt5.QtWebChannel import QWebChannel
 
 # Create a JavaScript handler class
@@ -41,6 +47,14 @@ class CompactBrowser(QWidget):
         self.setup_ui()
         self.selected_container = None
         self.drag_pos = None
+        self.results = []
+        self.current_selectors = {
+            "container": "",
+            "item": "",
+            "title": "",
+            "date": "",
+            "link": ""
+        }
         
         # Create the JavaScript handler
         self.js_handler = JSHandler()
@@ -62,21 +76,99 @@ class CompactBrowser(QWidget):
     
     def setup_ui(self):
         self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setFixedSize(1280, 720)
+        screen = QDesktopWidget().screenGeometry()  # Fetch screen size
+        self.setFixedSize(int(screen.width() * 0.618), int(screen.height() * 0.618))
 
-        self.title_bar = QWidget()
-        self.title_bar.setFixedHeight(30)
+        # 设置全局应用样式
+        self.setStyleSheet("""
+            QWidget { 
+                background-color: #f0f0f0; 
+            }
+            QLabel { 
+                background-color: transparent; 
+                border: none;
+                padding: 0px;
+                margin: 0px;
+            }
+            QPushButton {
+                background-color: #ff4444; 
+                color: white;
+                border-radius: 12px;
+            }
+            QPushButton:hover { 
+                background-color: #ff6666; 
+            }
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            /* 滚动条样式 */
+            QScrollBar:vertical {
+                background-color: #ffffff;
+                width: 8px;
+                margin: 0px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #cdcdcd;
+                min-height: 30px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #a0a0a0;
+            }
+            QScrollBar::handle:vertical:pressed {
+                background-color: #808080;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+            /* 水平滚动条样式 */
+            QScrollBar:horizontal {
+                background-color: #ffffff;
+                height: 8px;
+                margin: 0px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:horizontal {
+                background-color: #cdcdcd;
+                min-width: 30px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background-color: #a0a0a0;
+            }
+            QScrollBar::handle:horizontal:pressed {
+                background-color: #808080;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                width: 0px;
+            }
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+                background: none;
+            }
+            /* 结果区域边框样式 */
+            #results_border_container {
+                background-color: white;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+            }
+        """)
 
-        close_btn = QPushButton("×")
-        close_btn.setFixedSize(25, 25)
-        close_btn.setFont(QFont("Arial", 12, QFont.Bold))
-        close_btn.clicked.connect(self.close)
+        # Create new tab-style title bar
+        self.title_bar = TabStyleTitleBar("广州开发区科学技术局")
+        self.title_bar.close_btn.clicked.connect(self.close)
 
-        title_layout = QHBoxLayout(self.title_bar)
-        title_layout.setContentsMargins(5, 0, 5, 0)
-        title_layout.addStretch()
-        title_layout.addWidget(close_btn)
+        # Create main horizontal layout
+        main_content = QWidget()
+        h_layout = QHBoxLayout(main_content)
+        h_layout.setContentsMargins(0, 0, 0, 0)
+        h_layout.setSpacing(0)  # 确保没有间距
 
+        # Create webview
         self.webview = QWebEngineView()
         
         # Configure settings
@@ -84,20 +176,304 @@ class CompactBrowser(QWidget):
         settings.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
         settings.setAttribute(QWebEngineSettings.AllowRunningInsecureContent, True)
 
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(self.title_bar)
-        main_layout.addWidget(self.webview)
-
-        self.setStyleSheet("""
-            QWidget { background: #f0f0f0; }
-            QPushButton {
-                background: #ff4444; 
-                color: white;
-                border-radius: 12px;
-            }
-            QPushButton:hover { background: #ff6666; }
+        # Create a container for webview and status bar
+        webview_container = QWidget()
+        webview_container.setStyleSheet("background-color: #f0f0f0;")
+        webview_layout = QVBoxLayout(webview_container)
+        webview_layout.setContentsMargins(0, 0, 0, 0)
+        webview_layout.setSpacing(0)
+        
+        # Status bar at the top of webview
+        self.status_bar = QWidget()
+        self.status_bar.setFixedHeight(30)
+        self.status_bar.setStyleSheet("background-color: #e8f4fc; border-bottom: 1px solid #bbd5e8;")
+        status_layout = QHBoxLayout(self.status_bar)
+        status_layout.setContentsMargins(10, 0, 10, 0)
+        
+        # Status message
+        self.status_message = QLabel("Hover over a list container and press Enter to extract data")
+        self.status_message.setStyleSheet("color: #2980b9; font-weight: bold; background-color: transparent; border: none; padding: 0px;")
+        status_layout.addWidget(self.status_message)
+        
+        # Add status bar and webview to container
+        webview_layout.addWidget(self.status_bar)
+        webview_layout.addWidget(self.webview)
+        
+        # Create results panel (initially hidden)
+        self.results_panel = QWidget()
+        self.results_panel.setMinimumWidth(320)
+        self.results_panel.setMaximumWidth(500)
+        self.results_panel.setVisible(False)
+        self.results_panel.setObjectName("results_panel")
+        
+        # Set up the results panel
+        self.results_layout = QVBoxLayout(self.results_panel)
+        self.results_layout.setContentsMargins(0, 8, 8, 8)  # 移除左边距
+        self.results_layout.setSpacing(8)
+        
+        # Set global styles for the results panel
+        self.results_panel.setObjectName("results_panel")
+        self.results_panel.setStyleSheet("background-color: #ffffff;")  # 移除左边框
+        
+        # Results panel header
+        results_header = QWidget()
+        results_header.setFixedHeight(40)
+        results_header.setStyleSheet("background-color: #4a86e8; border-radius: 5px 5px 0 0; border-bottom: none;")
+        header_layout = QHBoxLayout(results_header)
+        header_layout.setContentsMargins(10, 0, 10, 0)
+        
+        # Results icon
+        results_icon = QLabel("📊")
+        results_icon.setStyleSheet("font-size: 18px; color: white; background-color: transparent;")
+        header_layout.addWidget(results_icon)
+        
+        # Results count label with white text
+        self.count_label = QLabel("Results")
+        self.count_label.setStyleSheet("font-weight: bold; font-size: 18px; color: white; background-color: transparent;")
+        header_layout.addWidget(self.count_label)
+        
+        header_layout.addStretch()
+        
+        # Add header to results layout
+        self.results_layout.addWidget(results_header)
+        
+        # Create selectors editor section
+        selector_section = QWidget()
+        selector_section.setObjectName("selector_section")
+        selector_layout = QVBoxLayout(selector_section)
+        selector_layout.setSpacing(10)
+        
+        # Add styles - 更新样式
+        selector_section.setStyleSheet("""
+            background-color: #f8f8f8; 
+            border: 1px solid #ddd; 
+            border-top: none;
+            border-radius: 0 0 8px 8px; 
+            margin-bottom: 15px;
+            padding: 5px;
         """)
+        
+        # Title for selectors section
+        selector_header = QWidget()
+        selector_header.setStyleSheet("background-color: #f8f8f8;")
+        selector_header_layout = QHBoxLayout(selector_header)
+        selector_header_layout.setContentsMargins(5, 0, 5, 0)
+        
+        selector_title = QLabel("CSS Selectors")
+        selector_title.setStyleSheet("font-weight: bold; color: #2c3e50; font-size: 16px; background-color: transparent;")
+        selector_header_layout.addWidget(selector_title)
+        
+        selector_subtitle = QLabel("(Edit to refine extraction)")
+        selector_subtitle.setStyleSheet("color: #7f8c8d; font-size: 16px; background-color: transparent;")
+        selector_header_layout.addWidget(selector_subtitle)
+        selector_header_layout.addStretch()
+        
+        selector_layout.addWidget(selector_header)
+        
+        # Create form layout for selectors
+        form_layout = QFormLayout()
+        form_layout.setVerticalSpacing(8)
+        form_layout.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        
+        # Create styled input fields for selectors
+        self.container_input = QLineEdit()
+        self.item_input = QLineEdit()
+        self.title_input = QLineEdit()
+        self.date_input = QLineEdit()
+        self.link_input = QLineEdit()
+        
+        # Style all inputs - 简化样式表
+        selector_input_style = "border: 1px solid #ccc; border-radius: 4px; padding: 7px; background-color: white; font-family: monospace; font-size: 16px;"
+        self.container_input.setStyleSheet(selector_input_style)
+        self.item_input.setStyleSheet(selector_input_style)
+        self.title_input.setStyleSheet(selector_input_style)
+        self.date_input.setStyleSheet(selector_input_style)
+        self.link_input.setStyleSheet(selector_input_style)
+        
+        # Style labels
+        label_style = "color: #34495e; font-weight: bold; font-size: 16px; background-color: transparent;"
+        container_label = QLabel("Container:")
+        container_label.setStyleSheet(label_style)
+        item_label = QLabel("Item:")
+        item_label.setStyleSheet(label_style)
+        title_label = QLabel("Title:")
+        title_label.setStyleSheet(label_style)
+        date_label = QLabel("Date:")
+        date_label.setStyleSheet(label_style)
+        link_label = QLabel("Link:")
+        link_label.setStyleSheet(label_style)
+        
+        # Add fields to form layout
+        form_layout.addRow(container_label, self.container_input)
+        form_layout.addRow(item_label, self.item_input)
+        form_layout.addRow(title_label, self.title_input)
+        form_layout.addRow(date_label, self.date_input)
+        form_layout.addRow(link_label, self.link_input)
+        
+        # Add form to selector section
+        selector_layout.addLayout(form_layout)
+        
+        # Add re-extract button with improved styling
+        reextract_btn = QPushButton("Re-extract with these selectors")
+        reextract_btn.setCursor(Qt.PointingHandCursor)
+        reextract_btn.setStyleSheet("background-color: #4a86e8; color: white; border-radius: 4px; padding: 8px 15px; font-weight: bold; font-size: 16px;")
+        reextract_btn.clicked.connect(self.reextract_with_selectors)
+        selector_layout.addWidget(reextract_btn)
+        
+        # Add selector section to results layout
+        self.results_layout.addWidget(selector_section)
+        
+        # 创建一个边框容器包裹滚动区域
+        self.border_container = QWidget()
+        self.border_container.setObjectName("results_border_container")
+        self.border_container.setStyleSheet("""
+            #results_border_container {
+                background-color: white;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                padding: 0px;
+            }
+        """)
+        border_layout = QVBoxLayout(self.border_container)
+        border_layout.setContentsMargins(5, 5, 5, 5)  # 添加内边距，使边框有一定间隔
+        
+        # Create scroll area for results with improved style
+        self.results_scroll = QScrollArea()
+        self.results_scroll.setWidgetResizable(True)
+        self.results_scroll.setStyleSheet("""
+            QScrollArea {
+                background-color: transparent;
+                border: none;
+            }
+            QScrollBar:vertical {
+                background-color: #ffffff;
+                width: 8px;
+                margin: 0px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #cdcdcd;
+                min-height: 30px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #a0a0a0;
+            }
+            QScrollBar::handle:vertical:pressed {
+                background-color: #808080;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        """)
+        
+        # Create content widget for results
+        self.results_content = QWidget()
+        self.results_content.setStyleSheet("""
+            background-color: white;
+        """)
+        self.results_content_layout = QVBoxLayout(self.results_content)
+        self.results_content_layout.setSpacing(10)  # 调整间距
+        self.results_content_layout.setContentsMargins(4, 8, 8, 8)  # 减小左侧内边距
+        
+        # Set scroll content
+        self.results_scroll.setWidget(self.results_content)
+        border_layout.addWidget(self.results_scroll)
+        
+        # 将边框容器添加到结果布局
+        self.results_layout.addWidget(self.border_container, 1)  # 1表示可拉伸
+        
+        # Buttons for the results panel
+        buttons_layout = QHBoxLayout()
+        
+        # Save button
+        self.save_results_btn = QPushButton("Save Results & Selectors")
+        self.save_results_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4a86e8;
+                color: white;
+                border-radius: 4px;
+                padding: 5px 10px;
+                font-weight: bold;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #3a76d8;
+            }
+        """)
+        self.save_results_btn.clicked.connect(self.save_results)
+        buttons_layout.addWidget(self.save_results_btn)
+        
+        # Hide button
+        self.hide_results_btn = QPushButton("Hide")
+        self.hide_results_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f0f0f0;
+                color: #333;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                padding: 5px 10px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+        """)
+        self.hide_results_btn.clicked.connect(lambda: self.toggle_results_panel(False))
+        buttons_layout.addWidget(self.hide_results_btn)
+        
+        self.results_layout.addLayout(buttons_layout)
+        
+        # Add webview and results panel to horizontal layout
+        h_layout.addWidget(webview_container, 7)  # 70% of width
+        h_layout.addWidget(self.results_panel, 3)  # 30% of width
+        
+        # 创建一个主背景窗口
+        self.main_window = QWidget()
+        self.main_window.setObjectName("main_window")
+        self.main_window.setStyleSheet("""
+            #main_window {
+                background-color: white;
+                border: 1px solid #cccccc;
+                border-radius: 5px;
+            }
+        """)
+        
+        # 创建主窗口的布局
+        main_window_layout = QVBoxLayout(self.main_window)
+        main_window_layout.setContentsMargins(0, 0, 0, 0)
+        main_window_layout.setSpacing(0)
+        
+        # 添加标题栏和内容窗口
+        main_window_layout.addWidget(self.title_bar)
+        main_window_layout.addWidget(main_content)
+        
+        # 设置主布局
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.addWidget(self.main_window)
+
+        self.results_panel.setObjectName("results_panel")
+    
+    def toggle_results_panel(self, show=True):
+        """Show or hide the results panel"""
+        self.results_panel.setVisible(show)
+        
+        # Get the main content through the main window
+        main_content = self.main_window.layout().itemAt(1).widget()
+        h_layout = main_content.layout()
+        
+        if show:
+            h_layout.setStretch(0, 6)  # webview gets 60%
+            h_layout.setStretch(1, 4)  # results panel gets 40%
+        else:
+            h_layout.setStretch(0, 1)  # webview gets 100%
+            h_layout.setStretch(1, 0)  # results panel gets 0%
     
     def on_load_finished(self, success):
         if success:
@@ -423,8 +799,8 @@ class CompactBrowser(QWidget):
             document.head.insertAdjacentHTML('beforeend', `
                 <style>
                     .auto-highlight {
-                        border: 3px solid #ff0000 !important;
-                        box-shadow: 0 0 15px rgba(255,0,0,0.5) !important;
+                        border: 3px solid rgba(255,0,0,0.8) !important;
+                        background-color: rgba(255,235,235,0.1) !important;
                     }
                     .selection-status {
                         position: fixed;
@@ -436,7 +812,7 @@ class CompactBrowser(QWidget):
                         border-radius: 4px;
                         z-index: 9999;
                         font-family: Arial, sans-serif;
-                        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                        border: 1px solid #27ae60;
                         display: none;
                     }
                 </style>
@@ -569,9 +945,13 @@ class CompactBrowser(QWidget):
     def handle_selection(self, html):
         if not html:
             print("错误: 接收到空HTML内容")
+            self.status_message.setText("Error: Received empty HTML content")
+            self.status_message.setStyleSheet("color: #e74c3c; font-weight: bold;")
             return
 
         self.selected_container = html
+        self.status_message.setText("Container selected! Analyzing content...")
+        self.status_message.setStyleSheet("color: #2980b9; font-weight: bold;")
         
         # 定义日期正则表达式
         date_regex = re.compile(
@@ -762,14 +1142,61 @@ class CompactBrowser(QWidget):
                 console.log("Selectors generated:", JSON.stringify(result));
                 return result;
             }})();
-        """, self.extract_data)
+        """, self.set_selectors)
+    
+    def set_selectors(self, selectors):
+        """Set the selectors in the form and extract data"""
+        if not selectors:
+            QMessageBox.critical(self, "Error", "Could not find valid list container")
+            self.status_message.setText("Error: Could not find valid list container")
+            self.status_message.setStyleSheet("color: #e74c3c; font-weight: bold; background-color: transparent;")
+            return
+        
+        # Store the current selectors
+        self.current_selectors = selectors
+        
+        # Update selector form fields
+        self.container_input.setText(selectors["container"])
+        self.item_input.setText(selectors["item"])
+        self.title_input.setText(selectors["title"]) 
+        self.date_input.setText(selectors["date"])
+        self.link_input.setText(selectors["link"])
+        
+        # Continue with data extraction
+        self.extract_data(selectors)
+    
+    def reextract_with_selectors(self):
+        """Re-extract data using the edited selectors"""
+        # Get the selectors from the form
+        new_selectors = {
+            "container": self.container_input.text(),
+            "item": self.item_input.text(),
+            "title": self.title_input.text(),
+            "date": self.date_input.text(),
+            "link": self.link_input.text()
+        }
+        
+        # Make sure we have valid selectors
+        if not new_selectors["container"] or not new_selectors["item"]:
+            QMessageBox.critical(self, "Error", "Container or item selector cannot be empty")
+            return
+        
+        # Update current selectors
+        self.current_selectors = new_selectors
+        
+        # Extract data with new selectors
+        self.extract_data(new_selectors)
 
     def extract_data(self, selectors):
         if not selectors:
-            QMessageBox.warning(self, "错误", "未找到有效列表容器")
+            QMessageBox.critical(self, "Error", "Could not find valid list container")
+            self.status_message.setText("Error: Could not find valid list container")
+            self.status_message.setStyleSheet("color: #e74c3c; font-weight: bold; background-color: transparent;")
             return
 
         print(f"使用选择器: {selectors}")
+        self.status_message.setText("Extracting data from selected container...")
+        self.status_message.setStyleSheet("color: #2980b9; font-weight: bold; background-color: transparent;")
         
         item_selector_base = selectors["item"].split('.')[0] if '.' in selectors["item"] else selectors["item"]
         
@@ -868,19 +1295,148 @@ class CompactBrowser(QWidget):
         self.page.runJavaScript(js_code, self.show_results_dialog)
 
     def show_results_dialog(self, results):
-        """显示提取结果的对话框"""
+        """显示提取结果到右侧面板"""
         if not results or len(results) == 0:
-            QMessageBox.information(self, "提示", "未提取到任何结果")
+            QMessageBox.information(self, "Information", "No results found")
+            self.status_message.setText("No results found. Try selecting a different container.")
+            self.status_message.setStyleSheet("color: #e74c3c; font-weight: bold; background-color: transparent;")
+            
+            # Show empty state in results panel
+            self.clear_results()
             return
         
-        # 创建并显示结果对话框
-        dialog = ResultDialog(results, self)
-        dialog.exec_()
+        self.status_message.setText(f"Successfully extracted {len(results)} items!")
+        self.status_message.setStyleSheet("color: #27ae60; font-weight: bold; background-color: transparent;")
+        self.results = results
+        
+        # Clear previous results
+        while self.results_content_layout.count():
+            item = self.results_content_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Update count label with animation hint
+        self.count_label.setText(f"{len(results)} results found")
+        self.count_label.setStyleSheet("font-weight: bold; font-size: 20px; color: white; background-color: transparent; border: none; padding: 0px;")
+        
+        # 设置平滑滚动属性 - 修复方法
+        self.results_scroll.verticalScrollBar().setSingleStep(10)
+        self.results_scroll.horizontalScrollBar().setSingleStep(10)
+        
+        # Add new results
+        for item in results:
+            title = item.get('title', '')
+            link = item.get('link', '')
+            date = item.get('date', '')
+            
+            # Create a card-style frame for each result with simple styling
+            result_frame = QWidget()
+            result_frame.setObjectName("result_card")
+            result_frame.setStyleSheet("""
+                background-color: white; 
+                border-radius: 6px; 
+                border: 1px solid #e0e0e0; 
+                margin-bottom: 12px;
+                margin-left: 2px;
+            """)
+            result_frame.setMaximumWidth(450)  # 限制卡片最大宽度
+            
+            result_layout = QVBoxLayout(result_frame)
+            result_layout.setSpacing(4)  # 减小元素间距
+            result_layout.setContentsMargins(12, 12, 12, 12)
+            
+            # 创建标题标签 - 始终显示完整标题
+            title_label = QLabel(title)
+            title_label.setStyleSheet("font-weight: bold; color: #2c3e50; font-size: 16px; background-color: transparent; border: none; padding: 0px;")
+            title_label.setWordWrap(True)  # 启用自动换行
+            title_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            title_label.setCursor(Qt.IBeamCursor)  # 设置文本选择光标
+            title_label.setToolTip(title)  # 添加工具提示，鼠标悬停时显示完整标题
+            title_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+            result_layout.addWidget(title_label)
+            
+            # 简化日期显示：直接放在标题下方
+            if date:
+                date_text = QLabel(f"📅 {date}")
+                date_text.setStyleSheet("color: #7f8c8d; font-size: 14px; background-color: transparent; border: none; padding: 0px; margin-top: 0px;")
+                result_layout.addWidget(date_text)
+            
+            # Separator line
+            separator = QWidget()
+            separator.setFixedHeight(1)
+            separator.setStyleSheet("background-color: #f0f0f0; border: none;")
+            result_layout.addWidget(separator)
+            
+            # 简化链接显示：直接放在分隔线下方
+            if link:
+                # 截断长链接
+                link_display = link
+                max_display_len = min(45, max(20, len(link)))
+                if len(link) > max_display_len:
+                    link_display = link[:max_display_len-3] + "..."
+                
+                # 创建水平布局
+                link_container = QWidget()
+                link_container.setStyleSheet("background-color: white; border: none;")
+                link_layout = QHBoxLayout(link_container)
+                link_layout.setContentsMargins(0, 2, 0, 0)  # 减少上边距
+                link_layout.setSpacing(4)
+                
+                # 链接文本
+                link_text = QLabel(f"🔗 <a href='{link}' style='color:#3498db; text-decoration:none;'>{link_display}</a>")
+                link_text.setOpenExternalLinks(True)
+                link_text.setTextInteractionFlags(Qt.TextBrowserInteraction)
+                link_text.setStyleSheet("font-size: 14px; background-color: transparent; border: none; padding: 0px;")
+                link_text.setToolTip(link)  # 添加工具提示，鼠标悬停时显示完整链接
+                link_layout.addWidget(link_text, 1)
+                
+                # 复制按钮
+                copy_btn = QToolButton()
+                copy_btn.setToolTip("Copy link to clipboard")
+                copy_btn.setText("📋")
+                copy_btn.setCursor(Qt.PointingHandCursor)
+                copy_btn.setStyleSheet("border: none; background: transparent; font-size: 15px; color: #7f8c8d;")
+                copy_btn.setProperty("url", link)
+                copy_btn.clicked.connect(self.copy_to_clipboard)
+                link_layout.addWidget(copy_btn)
+                
+                result_layout.addWidget(link_container)
+            
+            # Add result to layout
+            self.results_content_layout.addWidget(result_frame)
+        
+        # Add bottom padding
+        self.results_content_layout.addStretch()
+        
+        # Ensure all QLabel widgets have no border
+        for widget in self.results_panel.findChildren(QLabel):
+            current_style = widget.styleSheet()
+            if "border: none" not in current_style:
+                widget.setStyleSheet(current_style + "; border: none; padding: 0px; margin: 0px;")
+        
+        # Show the results panel
+        self.toggle_results_panel(True)
+
+    def copy_to_clipboard(self):
+        """Copy the URL to clipboard when copy button is clicked"""
+        # Get the URL from the sender's custom property
+        sender = self.sender()
+        if sender and sender.property("url"):
+            url = sender.property("url")
+            
+            # Copy to clipboard
+            clipboard = QApplication.clipboard()
+            clipboard.setText(url)
+            
+            # Brief visual feedback
+            sender.setText("✓")
+            QTimer.singleShot(1000, lambda: sender.setText("📋"))
 
     def mousePressEvent(self, event):
-        if event.y() < 30:
+        # Check if the click is on the title bar
+        if self.title_bar.geometry().contains(event.pos()):
             self.drag_pos = event.globalPos()
-
+        
     def mouseMoveEvent(self, event):
         if self.drag_pos:
             delta = event.globalPos() - self.drag_pos
@@ -890,89 +1446,249 @@ class CompactBrowser(QWidget):
     def mouseReleaseEvent(self, event):
         self.drag_pos = None
 
-# 添加这个自定义结果对话框类
-class ResultDialog(QDialog):
-    def __init__(self, results, parent=None):
+    def save_results(self):
+        """Save the extracted results to a file"""
+        if not self.results or len(self.results) == 0:
+            QMessageBox.information(self, "提示", "没有结果可以保存")
+            return
+        
+        from PyQt5.QtWidgets import QFileDialog
+        import csv
+        import os
+        import re
+        
+        # First, save the selectors to config.yaml
+        try:
+            # Check if yaml module is available
+            if yaml is None:
+                raise ImportError("PyYAML package is not installed. Please install it with 'pip install pyyaml'")
+                
+            # Get current URL
+            current_url = self.webview.url().toString()
+            
+            # Extract domain from URL for identification
+            domain_match = re.search(r'https?://([^/]+)', current_url)
+            if domain_match:
+                domain = domain_match.group(1)
+            else:
+                domain = current_url
+                
+            # Prepare selectors data
+            selector_data = {
+                "container": self.container_input.text(),
+                "link": self.link_input.text(),
+                "title": self.title_input.text(),
+                "date": self.date_input.text()
+            }
+            
+            site_data = {
+                "url": current_url,
+                "output_file": f"{domain.replace('.', '_')}.xml",
+                "selector": selector_data
+            }
+            
+            # Check if config file exists
+            config_path = "config.yaml"
+            config_data = {"sites": []}
+            
+            if os.path.exists(config_path):
+                # Read existing config
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config_data = yaml.safe_load(f) or {"sites": []}
+                
+                # Ensure 'sites' key exists
+                if "sites" not in config_data:
+                    config_data["sites"] = []
+                
+                # Check if site already exists
+                site_updated = False
+                for i, site in enumerate(config_data["sites"]):
+                    if re.search(domain, site.get("url", "")):
+                        # Update existing site
+                        config_data["sites"][i]["selector"] = selector_data
+                        site_updated = True
+                        break
+                
+                # Add new site if not found
+                if not site_updated:
+                    config_data["sites"].append(site_data)
+            else:
+                # Create new config with this site
+                config_data["sites"].append(site_data)
+            
+            # Write config
+            with open(config_path, 'w', encoding='utf-8') as f:
+                yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            
+            QMessageBox.information(self, "Success", f"Selectors saved to {config_path}")
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save selectors: {str(e)}")
+            return
+            
+        # Ask for file location for results
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "保存结果", "", "CSV Files (*.csv);;Text Files (*.txt)"
+        )
+        
+        if not file_path:
+            return  # User cancelled
+        
+        try:
+            # Get file extension
+            _, ext = os.path.splitext(file_path)
+            
+            # Save as CSV
+            if ext.lower() == '.csv':
+                with open(file_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    # Write header
+                    writer.writerow(['Title', 'Link', 'Date'])
+                    # Write data
+                    for item in self.results:
+                        writer.writerow([
+                            item.get('title', ''),
+                            item.get('link', ''),
+                            item.get('date', '')
+                        ])
+            # Save as TXT
+            elif ext.lower() == '.txt':
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    for item in self.results:
+                        f.write(f"Title: {item.get('title', '')}\n")
+                        f.write(f"Link: {item.get('link', '')}\n")
+                        f.write(f"Date: {item.get('date', '')}\n")
+                        f.write('-' * 50 + '\n')
+            else:
+                # Default to CSV if no extension or unknown
+                with open(file_path + '.csv', 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['Title', 'Link', 'Date'])
+                    for item in self.results:
+                        writer.writerow([
+                            item.get('title', ''),
+                            item.get('link', ''),
+                            item.get('date', '')
+                        ])
+            
+            QMessageBox.information(self, "Success", f"Results saved to {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save results: {str(e)}")
+
+    def clear_results(self):
+        """Clear the current results"""
+        self.results = []
+        
+        # Clear the results panel
+        while self.results_content_layout.count():
+            item = self.results_content_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # Update the count label
+        self.count_label.setText("Results cleared")
+        
+        # Add a placeholder message with better styling
+        placeholder_widget = QWidget()
+        placeholder_widget.setStyleSheet("background-color: white; border-radius: 8px; border: 1px solid #e0e0e0; margin: 10px;")
+        placeholder_layout = QVBoxLayout(placeholder_widget)
+        placeholder_layout.setContentsMargins(15, 25, 15, 25)
+        
+        empty_icon = QLabel("🔍")
+        empty_icon.setAlignment(Qt.AlignCenter)
+        empty_icon.setStyleSheet("font-size: 60px; color: #bdc3c7; background-color: transparent;")
+        
+        placeholder_text = QLabel("No results to display")
+        placeholder_text.setAlignment(Qt.AlignCenter)
+        placeholder_text.setStyleSheet("color: #7f8c8d; font-size: 16px; font-weight: bold; background-color: transparent;")
+        
+        placeholder_subtext = QLabel("Hover over a list container and press Enter to extract data")
+        placeholder_subtext.setAlignment(Qt.AlignCenter)
+        placeholder_subtext.setStyleSheet("color: #95a5a6; font-size: 14px; background-color: transparent;")
+        placeholder_subtext.setWordWrap(True)
+        
+        placeholder_layout.addStretch()
+        placeholder_layout.addWidget(empty_icon)
+        placeholder_layout.addWidget(placeholder_text)
+        placeholder_layout.addWidget(placeholder_subtext)
+        placeholder_layout.addStretch()
+        
+        self.results_content_layout.addWidget(placeholder_widget)
+
+class TabStyleTitleBar(QWidget):
+    def __init__(self, title, parent=None):
         super().__init__(parent)
-        self.results = results
-        self.setWindowTitle("Extract Results")
-        self.setMinimumSize(600, 400)
+        self.title = title
+        self.setFixedHeight(35)
+        self.setStyleSheet("background-color: transparent;")
         
-        self.setup_ui()
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 0, 5, 0)
+        
+        # Title label
+        self.title_label = QLabel(title)
+        self.title_label.setStyleSheet("""
+            color: #333333;
+            font-size: 14px;
+            font-weight: bold;
+            background-color: transparent;
+            padding-left: 5px;
+        """)
+        
+        # Close button
+        self.close_btn = QPushButton("×")
+        self.close_btn.setFixedSize(20, 20)
+        self.close_btn.setFont(QFont("Arial", 14, QFont.Bold))
+        self.close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #555555;
+                border: none;
+                border-radius: 10px;
+                margin-right: 2px;
+            }
+            QPushButton:hover {
+                background-color: #ff4444;
+                color: white;
+            }
+        """)
+        
+        # Add icon and title to layout
+        icon_label = QLabel()
+        icon_label.setFixedSize(16, 16)
+        icon_label.setStyleSheet("background-color: transparent; padding: 0px; margin: 0px;")
+        icon_label.setText("⚙")
+        
+        layout.addWidget(icon_label)
+        layout.addWidget(self.title_label)
+        layout.addStretch()
+        layout.addWidget(self.close_btn)
+        
+        # Setup cursor for draggable area
+        self.setCursor(Qt.ArrowCursor)
     
-    def setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setSpacing(10)
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
         
-        # 显示结果计数
-        count_label = QLabel(f"Found {len(self.results)} results")
-        count_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        layout.addWidget(count_label)
+        # Define the tab path
+        path = QPainterPath()
+        path.moveTo(0, self.height())
+        path.lineTo(0, 6)
+        path.quadTo(0, 0, 6, 0)
+        path.lineTo(self.width() - 6, 0)
+        path.quadTo(self.width(), 0, self.width(), 6)
+        path.lineTo(self.width(), self.height())
         
-        # 创建滚动区域
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
+        # Fill with gradient
+        painter.fillPath(path, QColor(240, 240, 240))
         
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setSpacing(15)
+        # Draw the border
+        painter.setPen(QPen(QColor(220, 220, 220), 1))
+        painter.drawPath(path)
         
-        # 为每个结果创建展示区域
-        for i, item in enumerate(self.results):
-            title = item.get('title', '')
-            link = item.get('link', '')
-            date = item.get('date', '')
-            
-            # 创建一个框架来包含每个结果 - 只在底部添加边框作为分割线
-            result_frame = QWidget()
-            result_frame.setStyleSheet("border-bottom: 1px solid #cccccc; margin-bottom: 8px;")
-            result_layout = QVBoxLayout(result_frame)
-            result_layout.setSpacing(2)  # 减小内部字段之间的间距
-            result_layout.setContentsMargins(5, 5, 5, 10)
-            
-            # 标题
-            title_label = QLabel(f"<b>Title:</b> {title}")
-            title_label.setWordWrap(True)
-            title_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-            result_layout.addWidget(title_label)
-            
-            # 链接
-            link_label = QLabel(f"<b>Link:</b> <a href='{link}'>{link}</a>")
-            link_label.setOpenExternalLinks(True)
-            link_label.setWordWrap(True)
-            result_layout.addWidget(link_label)
-            
-            # 日期
-            date_label = QLabel(f"<b>Date:</b> {date}")
-            result_layout.addWidget(date_label)
-            
-            content_layout.addWidget(result_frame)
-        
-        # 添加一些底部填充
-        content_layout.addStretch()
-        
-        # 设置滚动区域的内容
-        scroll.setWidget(content_widget)
-        layout.addWidget(scroll)
-        
-        # 创建水平布局来放置按钮
-        button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(0, 10, 0, 0)
-        
-        save_btn = QPushButton("Save")
-        # save_btn.clicked.connect(self.save_results)
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self.accept)
-        
-        # 添加按钮到水平布局
-        button_layout.addWidget(save_btn)
-        button_layout.addWidget(close_btn)
-        
-        # 将按钮布局添加到主布局
-        layout.addLayout(button_layout)
-        
-        # 调整窗口大小以适应内容
-        self.adjustSize()
+        # Draw the bottom line for non-active tabs (here we assume this is the active tab)
+        # If you want to add inactive tabs, you'd draw a line at the bottom of those
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
